@@ -32,6 +32,7 @@ options:
 --tls-cert <filepath>
 --tls-key <filepath>
 --tls-pass <filepath>
+--avoid-port
 `
 
 module.exports = help

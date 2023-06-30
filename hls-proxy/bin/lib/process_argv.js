@@ -1,49 +1,50 @@
 const process_argv = require('@warren-bank/node-process-argv')
 
-const {HttpProxyAgent, HttpsProxyAgent} = require('hpagent')
+const { HttpProxyAgent, HttpsProxyAgent } = require('hpagent')
 
 const argv_flags = {
-  "--help":                                 {bool: true},
-  "--version":                              {bool: true},
+  "--help": { bool: true },
+  "--version": { bool: true },
 
-  "--tls":                                  {bool: true},
-  "--host":                                 {},
-  "--port":                                 {num:  "int"},
+  "--tls": { bool: true },
+  "--host": {},
+  "--port": { num: "int" },
 
-  "--req-headers":                          {file: "json"},
-  "--origin":                               {},
-  "--referer":                              {},
-  "--useragent":                            {},
-  "--header":                               {many: true},
+  "--req-headers": { file: "json" },
+  "--origin": {},
+  "--referer": {},
+  "--useragent": {},
+  "--header": { many: true },
 
-  "--req-options":                          {file: "json"},
-  "--req-insecure":                         {bool: true},
-  "--req-secure-honor-server-cipher-order": {bool: true},
-  "--req-secure-ciphers":                   {},
-  "--req-secure-protocol":                  {},
-  "--req-secure-curve":                     {},
+  "--req-options": { file: "json" },
+  "--req-insecure": { bool: true },
+  "--req-secure-honor-server-cipher-order": { bool: true },
+  "--req-secure-ciphers": {},
+  "--req-secure-protocol": {},
+  "--req-secure-curve": {},
 
-  "--hooks":                                {file: "module"},
+  "--hooks": { file: "module" },
 
-  "--prefetch":                             {bool: true},
-  "--max-segments":                         {num:  "int"},
-  "--cache-timeout":                        {num:  "int"},
-  "--cache-key":                            {num:  "int"},
-  "--cache-storage":                        {enum: ["memory", "filesystem"]},
-  "--cache-storage-fs-dirpath":             {file: "path-exists"},
+  "--prefetch": { bool: true },
+  "--max-segments": { num: "int" },
+  "--cache-timeout": { num: "int" },
+  "--cache-key": { num: "int" },
+  "--cache-storage": { enum: ["memory", "filesystem"] },
+  "--cache-storage-fs-dirpath": { file: "path-exists" },
 
-  "-v":                                     {num:  "int"},
-  "--acl-whitelist":                        {},
-  "--http-proxy":                           {},
+  "-v": { num: "int" },
+  "--acl-whitelist": {},
+  "--http-proxy": {},
 
-  "--tls-cert":                             {file: "path-exists"},
-  "--tls-key":                              {file: "path-exists"},
-  "--tls-pass":                             {file: "path-exists"}
+  "--tls-cert": { file: "path-exists" },
+  "--tls-key": { file: "path-exists" },
+  "--tls-pass": { file: "path-exists" },
+  "--avoid-port": { bool: false }
 }
 
 const argv_flag_aliases = {
-  "--help":                                 ["-h"],
-  "--http-proxy":                           ["--https-proxy", "--proxy"]
+  "--help": ["-h"],
+  "--http-proxy": ["--https-proxy", "--proxy"]
 }
 
 let argv_vals = {}
@@ -51,7 +52,7 @@ let argv_vals = {}
 try {
   argv_vals = process_argv(argv_flags, argv_flag_aliases)
 }
-catch(e) {
+catch (e) {
   console.log('ERROR: ' + e.message)
   process.exit(1)
 }
@@ -149,7 +150,7 @@ if (argv_vals["--req-secure-honor-server-cipher-order"] || argv_vals["--req-secu
 if (argv_vals["--req-options"] && argv_vals["--req-options"]["headers"]) {
   const lc_headers = {}
   for (let key in argv_vals["--req-options"]["headers"]) {
-    lc_headers[ key.toLowerCase() ] = argv_vals["--req-options"]["headers"][key]
+    lc_headers[key.toLowerCase()] = argv_vals["--req-options"]["headers"][key]
   }
   argv_vals["--req-options"]["headers"] = lc_headers
 }
@@ -168,15 +169,15 @@ if (typeof argv_vals["-v"] !== 'number')
 
 if (argv_vals["--http-proxy"]) {
   const proxy_options = {
-    keepAlive:      true,
+    keepAlive: true,
     keepAliveMsecs: 1000,
-    maxSockets:     256,
+    maxSockets: 256,
     maxFreeSockets: 256,
-    proxy:          argv_vals["--http-proxy"]
+    proxy: argv_vals["--http-proxy"]
   }
 
   argv_vals["--http-proxy"] = {
-    "http:":  new HttpProxyAgent( proxy_options),
+    "http:": new HttpProxyAgent(proxy_options),
     "https:": new HttpsProxyAgent(proxy_options)
   }
 }
