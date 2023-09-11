@@ -1,6 +1,6 @@
 #! /usr/bin/env node
 
-const argv_vals = require('./lib/process_argv')
+const argv_vals = require('./lib/process_argv.js')
 
 const use_tls = (argv_vals["--tls-cert"] && argv_vals["--tls-key"]) || argv_vals["--tls"]
 
@@ -24,17 +24,17 @@ const normalize_host = (host, port) => {
 }
 
 const server = (use_tls)
-  ? require('../servers/start_https')({
+  ? require('../servers/start_https.js')({
     port: argv_vals["--port"],
     tls_cert: argv_vals["--tls-cert"],
     tls_key: argv_vals["--tls-key"],
     tls_pass: argv_vals["--tls-pass"]
   })
-  : require('../servers/start_http')({
+  : require('../servers/start_http.js')({
     port: argv_vals["--port"]
   })
 
-const middleware = require('../proxy')({
+const middleware = require('../proxy.js')({
   is_secure: use_tls,
   host: normalize_host(argv_vals["--host"], argv_vals["--port"]),
   req_headers: argv_vals["--req-headers"],

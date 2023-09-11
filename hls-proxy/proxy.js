@@ -1,18 +1,19 @@
 const request = require('@warren-bank/node-request').request
-const cookies = require('./cookies')
-const parser  = require('./manifest_parser')
-const timers  = require('./timers')
-const utils   = require('./utils')
+const cookies = require('./cookies.js')
+const parser = require('./manifest_parser.js')
+const timers = require('./timers.js')
+const utils = require('./utils.js')
+const axios = require('axios');
 
 const get_middleware = function(params) {
-  const {cache_segments} = params
-  let   {acl_whitelist}  = params
+  const { cache_segments } = params
+  let { acl_whitelist } = params
 
   const segment_cache = require('./segment_cache')(params)
-  const {get_segment, add_listener} = segment_cache
+  const { get_segment, add_listener } = segment_cache
 
-  const debug               = utils.debug.bind(null, params)
-  const parse_req_url       = utils.parse_req_url.bind(null, params)
+  const debug = utils.debug.bind(null, params)
+  const parse_req_url = utils.parse_req_url.bind(null, params)
   const get_request_options = utils.get_request_options.bind(null, params)
   const modify_m3u8_content = parser.modify_m3u8_content.bind(null, params, segment_cache)
 
@@ -40,12 +41,30 @@ const get_middleware = function(params) {
 
     utils.add_CORS_headers(res)
 
-    const {redirected_base_url, url_type, url, referer_url} = parse_req_url(req)
+    const { redirected_base_url, url_type, url, referer_url } = parse_req_url(req)
 
     if (!url) {
       res.writeHead(400)
       res.end()
       return
+    }
+
+    // XGAMPX
+    if (url_type == 'mp4') {
+      const u = new URL(url);
+      let h = req.headers;
+      h.host = u.host;
+      const data = await axios.get(u, {
+        headers: h,
+        responseType: "stream"
+      });
+      let nh = {};
+      for (let k of data.headers) {
+        nh[k[0]] = k[1];
+      }
+      res.writeHead(data.status, nh);
+      await data.data.pipe(res);
+      return;
     }
 
     const is_m3u8 = (url_type === 'm3u8')
@@ -72,27 +91,27 @@ const get_middleware = function(params) {
     debug(1, 'proxying:', url)
     debug(3, 'm3u8:', (is_m3u8 ? 'true' : 'false'))
 
-    request(options, '', {binary: !is_m3u8, stream: !is_m3u8, cookieJar: cookies.getCookieJar()})
-    .then(({redirects, response}) => {
-      debug(2, 'proxied response:', {status_code: response.statusCode, headers: response.headers, redirects})
+    request(options, '', { binary: !is_m3u8, stream: !is_m3u8, cookieJar: cookies.getCookieJar() })
+      .then(({ redirects, response }) => {
+        debug(2, 'proxied response:', { status_code: response.statusCode, headers: response.headers, redirects })
 
-      if (!is_m3u8) {
-        response.pipe(res)
-      }
-      else {
-        const m3u8_url = (redirects && Array.isArray(redirects) && redirects.length)
-          ? redirects[(redirects.length - 1)]
-          : url
+        if (!is_m3u8) {
+          response.pipe(res)
+        }
+        else {
+          const m3u8_url = (redirects && Array.isArray(redirects) && redirects.length)
+            ? redirects[(redirects.length - 1)]
+            : url
 
-        res.writeHead(200, { "Content-Type": "application/x-mpegURL" })
-        res.end( modify_m3u8_content(response.toString().trim(), m3u8_url, referer_url, redirected_base_url) )
-      }
-    })
-    .catch((e) => {
-      debug(0, 'ERROR:', e.message)
-      res.writeHead(500)
-      res.end()
-    })
+          res.writeHead(200, { "Content-Type": "application/x-mpegURL" })
+          res.end(modify_m3u8_content(response.toString().trim(), m3u8_url, referer_url, redirected_base_url))
+        }
+      })
+      .catch((e) => {
+        debug(0, 'ERROR:', e.message)
+        res.writeHead(500)
+        res.end()
+      })
   }
 
   timers.initialize_timers(params)

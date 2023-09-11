@@ -1,15 +1,15 @@
 const request = require('@warren-bank/node-request').request
 const cookies = require('./cookies')
-const utils   = require('./utils')
+const utils = require('./utils')
 
 module.exports = function(params) {
-  const {cache_segments, max_segments, cache_timeout, cache_key, debug_level} = params
+  const { cache_segments, max_segments, cache_timeout, cache_key, debug_level } = params
 
   if (!cache_segments) return {}
 
-  const debug                 = utils.debug.bind(null, params)
-  const get_request_options   = utils.get_request_options.bind(null, params)
-  const should_prefetch_url   = utils.should_prefetch_url.bind(null, params)
+  const debug = utils.debug.bind(null, params)
+  const get_request_options = utils.get_request_options.bind(null, params)
+  const should_prefetch_url = utils.should_prefetch_url.bind(null, params)
   const cache_storage_adapter = require('./segment_cache_storage')(params)
 
   // maps: "m3u8_url" => {access: timestamp, ts: []}
@@ -17,7 +17,7 @@ module.exports = function(params) {
 
   const get_cache = function(m3u8_url) {
     const data = cache[m3u8_url]
-    if (! data instanceof Object) return null
+    if (!data instanceof Object) return null
     return data
   }
 
@@ -43,7 +43,7 @@ module.exports = function(params) {
   }
 
   const get_timestamp = function() {
-    const ms  = (new Date()).getTime()
+    const ms = (new Date()).getTime()
     const sec = Math.floor(ms / 1000)
     return sec
   }
@@ -81,7 +81,7 @@ module.exports = function(params) {
     const ts = get_ts(m3u8_url)
     if (!ts || !ts.length || (start >= ts.length)) return
 
-    for (let i=start; i < (start + count); i++) {
+    for (let i = start; i < (start + count); i++) {
       if (i >= ts.length) break
 
       const segment = ts[i]
@@ -90,7 +90,7 @@ module.exports = function(params) {
         cache_storage_adapter.remove(segment.state)
 
       segment.has = false
-      segment.cb  = []
+      segment.cb = []
     }
 
     ts.splice(start, count)
@@ -98,8 +98,8 @@ module.exports = function(params) {
 
   const regexs = {
     "ts_extension": /\.ts(?:[\?#]|$)/i,
-    "ts_filename":  /^.*?\/([^\/]+\.ts).*$/i,
-    "ts_sequence":  /^.*?(\d+\.ts).*$/i
+    "ts_filename": /^.*?\/([^\/]+\.ts).*$/i,
+    "ts_sequence": /^.*?(\d+\.ts).*$/i
   }
 
   const is_ts_file = function(url) {
@@ -139,7 +139,7 @@ module.exports = function(params) {
     const key = get_privatekey_from_url(url)
     let i, segment
 
-    for (i=(ts.length - 1); i>=0; i--) {
+    for (i = (ts.length - 1); i >= 0; i--) {
       segment = ts[i]  // {key, has, cb, state}
       if (segment && (segment.key === key)) {
         index = i
@@ -156,7 +156,7 @@ module.exports = function(params) {
       index = find_index_of_segment(m3u8_url, url)
 
       if (index !== undefined)
-        return {m3u8_url, index}
+        return { m3u8_url, index }
     }
   }
 
@@ -165,7 +165,7 @@ module.exports = function(params) {
 
     if (cache[m3u8_url] === undefined) {
       // initialize a new data structure
-      cache[m3u8_url] = {access: 0, ts: []}
+      cache[m3u8_url] = { access: 0, ts: [] }
     }
 
     if (!dont_touch_access)
@@ -181,60 +181,60 @@ module.exports = function(params) {
 
       // placeholder to prevent multiple download requests
       index = ts.length
-      ts[index] = {key: get_privatekey_from_url(url), has: false, cb: [], state: {}}
+      ts[index] = { key: get_privatekey_from_url(url), has: false, cb: [], state: {} }
 
       let options = get_request_options(url, /* is_m3u8= */ false, referer_url)
-      promise = request(options, '', {binary: true, stream: false, cookieJar: cookies.getCookieJar()})
-      .then(({redirects, response}) => {
-        debug(1, `prefetch (complete, ${response.length} bytes):`, debug_url)
-        debug(2, 'prefetch response:', {status_code: response.statusCode, headers: response.headers, redirects})
+      promise = request(options, '', { binary: true, stream: false, cookieJar: cookies.getCookieJar() })
+        .then(({ redirects, response }) => {
+          debug(1, `prefetch (complete, ${response.length} bytes):`, debug_url)
+          debug(2, 'prefetch response:', { status_code: response.statusCode, headers: response.headers, redirects })
 
-        // asynchronous callback could occur after garbage collection; the index could've changed
-        index = find_index_of_segment(m3u8_url, url)
-        if (index === undefined) throw new Error('Prefetch completed after pending request was ejected from cache. Try increasing the "--max-segments" option.')
+          // asynchronous callback could occur after garbage collection; the index could've changed
+          index = find_index_of_segment(m3u8_url, url)
+          if (index === undefined) throw new Error('Prefetch completed after pending request was ejected from cache. Try increasing the "--max-segments" option.')
 
-        if (!dont_touch_access)
-          touch_access(m3u8_url)
+          if (!dont_touch_access)
+            touch_access(m3u8_url)
 
-        const segment = ts[index]
-        segment.has = true
-        cache_storage_adapter.set(segment.state, response)
-        if (segment.cb.length) {
-          segment.cb.forEach((cb) => {
-            cb(response)
+          const segment = ts[index]
+          segment.has = true
+          cache_storage_adapter.set(segment.state, response)
+          if (segment.cb.length) {
+            segment.cb.forEach((cb) => {
+              cb(response)
 
-            debug(1, 'cache (callback complete):', debug_url)
-          })
-          segment.cb = []
-        }
+              debug(1, 'cache (callback complete):', debug_url)
+            })
+            segment.cb = []
+          }
 
-        // cleanup: prune length of ts[] so it contains no more than "max_segments"
-        if (ts.length > max_segments) {
-          let overflow = ts.length - max_segments
-          ts_garbage_collect(m3u8_url, 0, overflow)
-        }
-      })
-      .catch((e) => {
-        debug(1, 'prefetch (error):', debug_url)
-        debug(2, 'prefetch (error):', e.message)
+          // cleanup: prune length of ts[] so it contains no more than "max_segments"
+          if (ts.length > max_segments) {
+            let overflow = ts.length - max_segments
+            ts_garbage_collect(m3u8_url, 0, overflow)
+          }
+        })
+        .catch((e) => {
+          debug(1, 'prefetch (error):', debug_url)
+          debug(2, 'prefetch (error):', e.message)
 
-        // asynchronous callback could occur after garbage collection; the index could've changed
-        index = find_index_of_segment(m3u8_url, url)
-        if (index !== undefined) ts_garbage_collect(m3u8_url, index, 1)
-      })
+          // asynchronous callback could occur after garbage collection; the index could've changed
+          index = find_index_of_segment(m3u8_url, url)
+          if (index !== undefined) ts_garbage_collect(m3u8_url, index, 1)
+        })
     }
 
     return promise
   }
 
   const get_segment = async function(url, url_type) {
-    if (! should_prefetch_url(url, url_type)) return undefined
+    if (!should_prefetch_url(url, url_type)) return undefined
 
     let debug_url = (debug_level >= 3) ? url : get_publickey_from_url(url)
-    let segment   = find_segment(url)
+    let segment = find_segment(url)
 
     if (segment !== undefined) {
-      const {m3u8_url, index} = segment
+      const { m3u8_url, index } = segment
       const ts = get_ts(m3u8_url)
       touch_access(m3u8_url)
 
@@ -267,13 +267,13 @@ module.exports = function(params) {
   }
 
   const add_listener = function(url, url_type, cb) {
-    if (! should_prefetch_url(url, url_type)) return false
+    if (!should_prefetch_url(url, url_type)) return false
 
     let debug_url = (debug_level >= 3) ? url : get_publickey_from_url(url)
 
     let segment = find_segment(url)
     if (segment !== undefined) {
-      const {m3u8_url, index} = segment
+      const { m3u8_url, index } = segment
       const ts = get_ts(m3u8_url)
       touch_access(m3u8_url)
 
@@ -282,7 +282,7 @@ module.exports = function(params) {
       if (segment.has) {
         cb(segment)
 
-        debug(1, 'cache (callback complete):', debug_url)        
+        debug(1, 'cache (callback complete):', debug_url)
       }
       else {
         segment.cb.push(cb)
